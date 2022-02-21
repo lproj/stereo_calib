@@ -218,8 +218,7 @@ parse_imgs(const fs::path &path, unsigned int num_imgs, cv::Size board_size,
   return stereo_imgs;
 }
 
-calib_t stereo_calibrate(const std::vector<stereo_view_t> &stereo_imgs,
-                         bool save, fs::path output_dir) {
+calib_t stereo_calibrate(const std::vector<stereo_view_t> &stereo_imgs) {
   std::cout << "running stereo calibration...\n";
   BOOST_ASSERT(!stereo_imgs.empty());
   std::vector<decltype(view_t::obj_points)> all_obj_points;
@@ -252,21 +251,13 @@ calib_t stereo_calibrate(const std::vector<stereo_view_t> &stereo_imgs,
             << calib.D2 << "\n\n";
   std::cout << "Rotation Matrix:\n" << calib.R << "\n\n";
   std::cout << "Translation Matrix:\n" << calib.T << '\n';
-  if (save) {
-    const auto file = output_dir / "stereo_calibration.xml";
-    cv::FileStorage fs(file, cv::FileStorage::WRITE);
-    fs << "camera_matrix_1" << calib.A1 << "distortion_coefficients_1"
-       << calib.D1 << "camera_matrix_2" << calib.A2
-       << "distortion_coefficients_2" << calib.D2 << "rotation" << calib.R
-       << "translation" << calib.T;
-  }
   return calib;
 }
 
 std::vector<cv::Mat>
 undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
-                  const calib_t &calib, fs::path output_dir, bool show = true,
-                  bool use_sbgm = false) {
+                  const calib_t &calib, fs::path output_dir, bool save,
+                  bool show = true, bool use_sbgm = false) {
   BOOST_ASSERT(!stereo_imgs.empty());
   const auto img_size = stereo_imgs.at(0).first.img.size();
   cv::Mat R1, R2, P1, P2, map11, map12, map21, map22;
@@ -277,6 +268,16 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
                               map11, map12);
   cv::initUndistortRectifyMap(calib.A2, calib.D2, R2, P2, img_size, CV_16SC2,
                               map21, map22);
+  if (save) {
+    const auto file = output_dir / "stereo_calibration.xml";
+    cv::FileStorage fs(file, cv::FileStorage::WRITE);
+    fs << "camera_matrix_A1" << calib.A1 << "distortion_coefficients_D1"
+       << calib.D1 << "camera_matrix_A2" << calib.A2
+       << "distortion_coefficients_D2" << calib.D2 << "stereo_rotation_R"
+       << calib.R << "stereo_translation_T" << calib.T
+       << "rectified_rotation_R1" << R1 << "rectified_rotation_R2" << R2
+       << "new_camera_matrix_1" << P1 << "new_camera_matrix_2" << P2;
+  }
   std::vector<cv::Mat> rectified;
   cv::Mat pair;
   pair.create(img_size.height, img_size.width * 2, CV_8UC3);
@@ -375,11 +376,11 @@ int main(int argc, char **argv) try {
       opts->imgs_dir, opts->num_imgs, opts->board_size, opts->square_size,
       opts->top_bottom, opts->output_dir, opts->ext, opts->show_corners);
 
-  const auto calib =
-      stereo_calibrate(src_imgs, opts->save_calib, opts->output_dir);
+  const auto calib = stereo_calibrate(src_imgs);
 
-  const auto rectified_imgs = undistort_rectify(
-      src_imgs, calib, opts->output_dir, opts->show_rectified);
+  const auto rectified_imgs =
+      undistort_rectify(src_imgs, calib, opts->output_dir, opts->save_calib,
+                        opts->show_rectified);
 
   return EXIT_SUCCESS;
 
