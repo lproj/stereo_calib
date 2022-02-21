@@ -1,4 +1,4 @@
-# Installation instructions for Ubuntu 20.04
+# Build instructions for Ubuntu 20.04
 
 ## Requirements
 
@@ -23,8 +23,7 @@ You need the full gcc toolchain supporting C++20 (e.g. g++-10):
  cmake --build .
  ```
 
-## Try with --help
+## Run the program with --help to see the command line options
  ```
  ./stereo_calib --help
  ```
-
