@@ -18,7 +18,6 @@ Author: Luca Risolia <info@linux-projects.org>
 #include <boost/exception/diagnostic_information.hpp>
 #include <boost/program_options.hpp>
 #include <boost/throw_exception.hpp>
-#include <boost/tokenizer.hpp>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
@@ -246,9 +245,11 @@ calib_t stereo_calibrate(const std::vector<stereo_view_t> &stereo_imgs,
                        1e-6));
   std::cout << "re-projection error: " << calib.reproject_err << "\n\n";
   std::cout << "First Camera Intrinsics:\n" << calib.A1 << "\n\n";
-  std::cout << "First Camera Distortion coefficients:\n" << calib.D1 << "\n\n";
+  std::cout << "First Camera Lens Distortion coefficients:\n"
+            << calib.D1 << "\n\n";
   std::cout << "Second Camera Intrinsics:\n" << calib.A2 << "\n\n";
-  std::cout << "Second Camera Distortion coefficients:\n" << calib.D2 << "\n\n";
+  std::cout << "Second Camera Lens Distortion coefficients:\n"
+            << calib.D2 << "\n\n";
   std::cout << "Rotation Matrix:\n" << calib.R << "\n\n";
   std::cout << "Translation Matrix:\n" << calib.T << '\n';
   if (save) {
