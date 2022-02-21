@@ -260,10 +260,9 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
                   bool show = true, bool use_sbgm = false) {
   BOOST_ASSERT(!stereo_imgs.empty());
   const auto img_size = stereo_imgs.at(0).first.img.size();
-  cv::Mat R1, R2, P1, P2, map11, map12, map21, map22;
+  cv::Mat R1, R2, P1, P2, Q, map11, map12, map21, map22;
   cv::stereoRectify(calib.A1, calib.D1, calib.A2, calib.D2, img_size, calib.R,
-                    calib.T, R1, R2, P1, P2, cv::noArray(),
-                    cv::CALIB_ZERO_DISPARITY);
+                    calib.T, R1, R2, P1, P2, Q, cv::CALIB_ZERO_DISPARITY);
   cv::initUndistortRectifyMap(calib.A1, calib.D1, R1, P1, img_size, CV_16SC2,
                               map11, map12);
   cv::initUndistortRectifyMap(calib.A2, calib.D2, R2, P2, img_size, CV_16SC2,
@@ -276,7 +275,8 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
        << "distortion_coefficients_D2" << calib.D2 << "stereo_rotation_R"
        << calib.R << "stereo_translation_T" << calib.T
        << "rectified_rotation_R1" << R1 << "rectified_rotation_R2" << R2
-       << "new_camera_matrix_1" << P1 << "new_camera_matrix_2" << P2;
+       << "new_camera_matrix_1" << P1 << "new_camera_matrix_2" << P2
+       << "reprojection_matrix" << Q;
   }
   std::vector<cv::Mat> rectified;
   cv::Mat pair;
