@@ -45,14 +45,14 @@ std::optional<program_options_t> parse_program_options(int argc, char **argv) {
   program_options_t opts;
 
   po::options_description desc{"Program options"};
-  desc.add_options()("board_rows,r",
+  desc.add_options()("board-rows,r",
                      po::value<int>(&opts.board_size.width)->required(),
                      "number of rows in the board")(
-      "board_cols,c", po::value<int>(&opts.board_size.height)->required(),
+      "board-cols,c", po::value<int>(&opts.board_size.height)->required(),
       "number of columns in the board")(
-      "square_size,s", po::value<double>(&opts.square_size)->default_value(1.0),
+      "square-size,s", po::value<double>(&opts.square_size)->default_value(1.0),
       "number of rows in the board")(
-      "num_imgs,n",
+      "num-imgs,n",
       po::value<unsigned int>(&opts.num_imgs)
           ->default_value(15)
           ->notifier([&opts](const auto &v) {
@@ -63,7 +63,7 @@ std::optional<program_options_t> parse_program_options(int argc, char **argv) {
             opts.num_imgs = v;
           }),
       "maximum number of images with a properly identified pattern to "
-      "consider")("imgs_dir,i",
+      "consider")("imgs-dir,i",
                   po::value<std::string>()->required()->notifier(
                       [&opts](const auto &v) { opts.imgs_dir = v; }),
                   "path to the directory with the input stereo images")(
