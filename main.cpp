@@ -276,7 +276,7 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
        << calib.R << "stereo_translation_T" << calib.T
        << "rectified_rotation_R1" << R1 << "rectified_rotation_R2" << R2
        << "new_camera_matrix_1" << P1 << "new_camera_matrix_2" << P2
-       << "reprojection_matrix" << Q;
+       << "reprojection_matrix" << Q << "image_size" << img_size;
   }
   std::vector<cv::Mat> rectified;
   cv::Mat pair;
