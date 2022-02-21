@@ -38,6 +38,10 @@ struct program_options_t {
   bool top_bottom, show_rectified, show_corners, save_calib;
   fs::path imgs_dir, output_dir;
   std::string ext;
+  int num_disparities, block_size;
+  // hardcoded options:
+  static constexpr auto *calib_filename = "stereo_calibration.xml";
+  static constexpr bool use_sbgm = false;
 };
 
 std::optional<program_options_t> parse_program_options(int argc, char **argv) {
@@ -94,7 +98,12 @@ std::optional<program_options_t> parse_program_options(int argc, char **argv) {
           ->default_value(true),
       "show detected corners")(
       "file-ext,e", po::value<std::string>(&opts.ext)->default_value(".png"),
-      "parse images with given file exention only");
+      "parse images with given file exention only")(
+      "num-disparities",
+      po::value<int>(&opts.num_disparities)->default_value(0),
+      "disparity search range for the stereo correspondance algoritm")(
+      "block-size", po::value<int>(&opts.block_size)->default_value(21),
+      "block size for the stereo correspondance algoritm");
 
   po::options_description other_desc{"Other options"};
   other_desc.add_options()("help,h", "print help screen and exit");
@@ -132,29 +141,26 @@ struct calib_t {
   double reproject_err = 0;
 };
 
-std::vector<stereo_view_t>
-parse_imgs(const fs::path &path, unsigned int num_imgs, cv::Size board_size,
-           double square_size, bool top_bottom, fs::path output_dir,
-           std::string_view ext = ".png", bool show = false) {
-  if (!fs::is_directory(path)) {
+std::vector<stereo_view_t> parse_imgs(const program_options_t &opts) {
+  if (!fs::is_directory(opts.imgs_dir)) {
     boost::throw_exception(
-        std::runtime_error{path.string() + " is not directory"});
+        std::runtime_error{opts.imgs_dir.string() + " is not directory"});
   }
 
   std::vector<stereo_view_t> stereo_imgs;
 
   fs::recursive_directory_iterator it{
-      path, fs::directory_options::follow_directory_symlink};
+      opts.imgs_dir, fs::directory_options::follow_directory_symlink};
   std::vector<fs::path> files{it, {}};
   std::sort(std::begin(files), std::end(files));
-  for (unsigned n = 0; const fs::path &file : files) {
-    if (file.extension() == ext) {
+  for (unsigned n = 0, show = opts.show_corners; const fs::path &file : files) {
+    if (file.extension() == opts.ext) {
       std::cout << "loading stereo image '" << file << "'...";
       const auto stereo_img = cv::imread(file);
       const auto sz = stereo_img.size();
       std::cout << "image size is " << sz << '\n';
       view_t left, right;
-      if (top_bottom) {
+      if (opts.top_bottom) {
         left.img = stereo_img(cv::Rect{0, 0, sz.width, sz.height / 2});
         right.img =
             stereo_img(cv::Rect{0, sz.height / 2, sz.width, sz.height / 2});
@@ -164,12 +170,12 @@ parse_imgs(const fs::path &path, unsigned int num_imgs, cv::Size board_size,
             stereo_img(cv::Rect{0, sz.width / 2, sz.width / 2, sz.height});
       }
       if (bool found =
-              cv::findChessboardCorners(left.img, board_size, left.img_points,
-                                        cv::CALIB_CB_ADAPTIVE_THRESH |
-                                            cv::CALIB_CB_FILTER_QUADS) &&
-              cv::findChessboardCorners(right.img, board_size, right.img_points,
-                                        cv::CALIB_CB_ADAPTIVE_THRESH |
-                                            cv::CALIB_CB_FILTER_QUADS)) {
+              cv::findChessboardCorners(
+                  left.img, opts.board_size, left.img_points,
+                  cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_FILTER_QUADS) &&
+              cv::findChessboardCorners(
+                  right.img, opts.board_size, right.img_points,
+                  cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_FILTER_QUADS)) {
         n++;
         left.name = "left_" + file.stem().string();
         right.name = "right_" + file.stem().string();
@@ -182,36 +188,37 @@ parse_imgs(const fs::path &path, unsigned int num_imgs, cv::Size board_size,
               cv::Size(-1, -1),
               cv::TermCriteria(cv::TermCriteria::EPS | cv::TermCriteria::COUNT,
                                60, 0.01));
-          for (int i = 0; i < board_size.height; i++)
-            for (int j = 0; j < board_size.width; j++)
-              view->obj_points.emplace_back(j * square_size, i * square_size,
-                                            0);
+          for (int i = 0; i < opts.board_size.height; i++)
+            for (int j = 0; j < opts.board_size.width; j++)
+              view->obj_points.emplace_back(j * opts.square_size,
+                                            i * opts.square_size, 0);
         }
-
-        for (const auto &view : {left, right}) {
-          if (show) {
+        if (show) {
+          for (const auto &view : {left, right}) {
             cv::Mat cimg;
             cv::cvtColor(view.grey_img, cimg, cv::COLOR_GRAY2BGR);
-            drawChessboardCorners(cimg, board_size, view.img_points, found);
+            drawChessboardCorners(cimg, opts.board_size, view.img_points,
+                                  found);
             cv::imshow("corners", cimg);
-            if (const auto key = cv::waitKey();
-                (key & 255) == 27 || key == 'q') {
+            const auto key = cv::waitKey();
+            cv::destroyWindow("corners");
+            if ((key & 255) == 27 || key == 'q') {
               show = false;
+              break;
             } else if (key == 's') {
               const fs::path save_as =
-                  output_dir / (view.name + "_corners.png");
+                  opts.output_dir / (view.name + "_corners.png");
               std::cout << "saving image as " << save_as << "\n";
               if (!imwrite(save_as.string(), cimg))
                 std::cerr << "error while saving\n";
             }
-            cv::destroyWindow("corners");
           }
         }
         stereo_imgs.emplace_back(std::move(left), std::move(right));
       } else {
         std::cout << "expected patterns not found, skip...\n";
       }
-      if (n >= num_imgs)
+      if (n >= opts.num_imgs)
         break;
     }
   }
@@ -256,8 +263,7 @@ calib_t stereo_calibrate(const std::vector<stereo_view_t> &stereo_imgs) {
 
 std::vector<cv::Mat>
 undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
-                  const calib_t &calib, fs::path output_dir, bool save,
-                  bool show = true, bool use_sbgm = false) {
+                  const calib_t &calib, const program_options_t &opts) {
   BOOST_ASSERT(!stereo_imgs.empty());
   const auto img_size = stereo_imgs.at(0).first.img.size();
   cv::Mat R1, R2, P1, P2, Q, map11, map12, map21, map22;
@@ -267,8 +273,8 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
                               map11, map12);
   cv::initUndistortRectifyMap(calib.A2, calib.D2, R2, P2, img_size, CV_16SC2,
                               map21, map22);
-  if (save) {
-    const auto file = output_dir / "stereo_calibration.xml";
+  if (opts.save_calib) {
+    const auto file = opts.output_dir / opts.calib_filename;
     cv::FileStorage fs(file, cv::FileStorage::WRITE);
     fs << "camera_matrix_A1" << calib.A1 << "distortion_coefficients_D1"
        << calib.D1 << "camera_matrix_A2" << calib.A2
@@ -276,12 +282,15 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
        << calib.R << "stereo_translation_T" << calib.T
        << "rectified_rotation_R1" << R1 << "rectified_rotation_R2" << R2
        << "new_camera_matrix_1" << P1 << "new_camera_matrix_2" << P2
-       << "reprojection_matrix" << Q << "image_size" << img_size;
+       << "bm_num_disparities" << opts.num_disparities << "bm_block_size"
+       << opts.block_size << "reprojection_matrix" << Q << "image_size"
+       << img_size;
   }
   std::vector<cv::Mat> rectified;
   cv::Mat pair;
   pair.create(img_size.height, img_size.width * 2, CV_8UC3);
-  for (const auto &[left, right] : stereo_imgs) {
+  for (auto show = opts.show_rectified;
+       const auto &[left, right] : stereo_imgs) {
     cv::Mat img1r, img2r;
     cv::remap(left.grey_img, img1r, map11, map12, cv::INTER_LINEAR);
     cv::remap(right.grey_img, img2r, map21, map22, cv::INTER_LINEAR);
@@ -295,36 +304,36 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
     }
     if (show) {
       cv::imshow("rectified", pair);
-      if (const auto key = cv::waitKey(); (key & 255) == 27 || key == 'q') {
+      const auto key = cv::waitKey();
+      cv::destroyWindow("rectified");
+      if ((key & 255) == 27 || key == 'q') {
         show = false;
       } else if (key == 's') {
         const fs::path left_save_as =
-                           output_dir / (left.name + "_rectified.png"),
+                           opts.output_dir / (left.name + "_rectified.png"),
                        right_save_as =
-                           output_dir / (right.name + "_rectified.png");
+                           opts.output_dir / (right.name + "_rectified.png");
         std::cout << "saving image as " << left_save_as << " and "
                   << right_save_as << '\n';
         if (!imwrite(left_save_as.string(), img1r) ||
             !imwrite(right_save_as.string(), img2r))
           std::cerr << "error while saving\n";
       }
-      cv::destroyWindow("rectified");
       if (show) {
         // Compute and show the disparity map
         cv::Ptr<cv::StereoMatcher> sm;
-        if (use_sbgm) {
-          // cv::Ptr<cv::StereoSGBM> sbgm = cv::StereoSGBM::create(); // defs.
-          int block_size = 5,
-              p1 = 600,  // doc suggests: 8 * 1 * block_size * block_size,
+        if (opts.use_sbgm) {
+          int p1 = 600,  // doc suggests: 8 * 1 * block_size * block_size,
               p2 = 2400, // doc. suggets 32 * 1 * block_size * block_size,
-              mindisp = -64, numdisp = 192, disp12maxdiff = 0, prefiltercap = 4,
+              mindisp = -64, disp12maxdiff = 0, prefiltercap = 4,
               uniquenessratio = 1, specklewsize = 150, specklerange = 2;
-          sm = cv::StereoSGBM::create(mindisp, numdisp, block_size, p1, p2,
-                                      disp12maxdiff, prefiltercap,
-                                      uniquenessratio, specklewsize,
-                                      specklerange, cv::StereoSGBM::MODE_HH);
+          sm = cv::StereoSGBM::create(
+              mindisp, opts.num_disparities, opts.block_size, p1, p2,
+              disp12maxdiff, prefiltercap, uniquenessratio, specklewsize,
+              specklerange, cv::StereoSGBM::MODE_HH);
         } else {
-          auto sbm = cv::StereoBM::create(0, 23);
+          auto sbm =
+              cv::StereoBM::create(opts.num_disparities, opts.block_size);
           // sbm->setBlockSize(21);
           // sbm->setNumDisparities(112);
           // sbm->setPreFilterSize(7); // 7 should be the default
@@ -343,15 +352,17 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
         cv::normalize(disp, ndisp, 0, 255, cv::NORM_MINMAX, CV_8U);
         cv::applyColorMap(ndisp, disp, cv::COLORMAP_JET);
         cv::imshow("disparity", disp);
-        if (const auto key = cv::waitKey(); (key & 255) == 27 || key == 'q') {
+        const auto key = cv::waitKey();
+        cv::destroyWindow("disparity");
+        if ((key & 255) == 27 || key == 'q') {
           show = false;
         } else if (key == 's') {
-          const fs::path save_as = output_dir / (left.name + "_disparity.png");
+          const fs::path save_as =
+              opts.output_dir / (left.name + "_disparity.png");
           std::cout << "saving image as " << save_as << "\n";
           if (!imwrite(save_as.string(), disp))
             std::cerr << "error while saving\n";
         }
-        cv::destroyWindow("disparity");
       }
     }
     rectified.push_back(pair);
@@ -363,7 +374,6 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
 
 int main(int argc, char **argv) try {
   const auto opts = parse_program_options(argc, argv);
-
   if (!opts) {
     return EXIT_SUCCESS;
   }
@@ -372,15 +382,9 @@ int main(int argc, char **argv) try {
     std::cout
         << "To save the image shown in the window press 's', or 'q' to skip\n";
 
-  const auto src_imgs = parse_imgs(
-      opts->imgs_dir, opts->num_imgs, opts->board_size, opts->square_size,
-      opts->top_bottom, opts->output_dir, opts->ext, opts->show_corners);
-
+  const auto src_imgs = parse_imgs(*opts);
   const auto calib = stereo_calibrate(src_imgs);
-
-  const auto rectified_imgs =
-      undistort_rectify(src_imgs, calib, opts->output_dir, opts->save_calib,
-                        opts->show_rectified);
+  const auto rectified_imgs = undistort_rectify(src_imgs, calib, *opts);
 
   return EXIT_SUCCESS;
 
