@@ -167,7 +167,7 @@ std::vector<stereo_view_t> parse_imgs(const program_options_t &opts) {
       } else {
         left.img = stereo_img(cv::Rect{0, 0, sz.width / 2, sz.height});
         right.img =
-            stereo_img(cv::Rect{0, sz.width / 2, sz.width / 2, sz.height});
+            stereo_img(cv::Rect{sz.width / 2, 0, sz.width / 2, sz.height});
       }
       if (bool found =
               cv::findChessboardCorners(
@@ -281,10 +281,10 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
        << "distortion_coefficients_D2" << calib.D2 << "stereo_rotation_R"
        << calib.R << "stereo_translation_T" << calib.T
        << "rectified_rotation_R1" << R1 << "rectified_rotation_R2" << R2
-       << "new_camera_matrix_1" << P1 << "new_camera_matrix_2" << P2
-       << "bm_num_disparities" << opts.num_disparities << "bm_block_size"
-       << opts.block_size << "reprojection_matrix" << Q << "image_size"
-       << img_size;
+       << "new_camera_matrix_P1" << P1 << "new_camera_matrix_P2" << P2
+       << "reprojection_matrix" << Q << "bm_num_disparities"
+       << opts.num_disparities << "bm_block_size" << opts.block_size
+       << "image_size" << img_size << "top_bottom" << opts.top_bottom;
   }
   std::vector<cv::Mat> rectified;
   cv::Mat pair;
