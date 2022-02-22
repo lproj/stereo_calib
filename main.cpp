@@ -276,13 +276,13 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
   if (opts.save_calib) {
     const auto file = opts.output_dir / opts.calib_filename;
     cv::FileStorage fs(file, cv::FileStorage::WRITE);
-    fs << "camera_matrix_A1" << calib.A1 << "distortion_coefficients_D1"
-       << calib.D1 << "camera_matrix_A2" << calib.A2
+    fs << "intrinsics_A1" << calib.A1 << "distortion_coefficients_D1"
+       << calib.D1 << "intrinsics_A2" << calib.A2
        << "distortion_coefficients_D2" << calib.D2 << "stereo_rotation_R"
        << calib.R << "stereo_translation_T" << calib.T
        << "rectified_rotation_R1" << R1 << "rectified_rotation_R2" << R2
-       << "new_camera_matrix_P1" << P1 << "new_camera_matrix_P2" << P2
-       << "reprojection_matrix_Q" << Q << "bm_num_disparities"
+       << "new_camera_P1" << P1 << "new_camera_P2" << P2
+       << "reprojection_Q" << Q << "bm_num_disparities"
        << opts.num_disparities << "bm_block_size" << opts.block_size
        << "image_size" << img_size << "top_bottom" << opts.top_bottom;
   }
