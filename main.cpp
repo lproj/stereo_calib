@@ -282,7 +282,7 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
        << calib.R << "stereo_translation_T" << calib.T
        << "rectified_rotation_R1" << R1 << "rectified_rotation_R2" << R2
        << "new_camera_matrix_P1" << P1 << "new_camera_matrix_P2" << P2
-       << "reprojection_matrix" << Q << "bm_num_disparities"
+       << "reprojection_matrix_Q" << Q << "bm_num_disparities"
        << opts.num_disparities << "bm_block_size" << opts.block_size
        << "image_size" << img_size << "top_bottom" << opts.top_bottom;
   }
