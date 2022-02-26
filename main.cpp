@@ -110,7 +110,6 @@ std::optional<program_options_t> parse_program_options(int argc, char **argv) {
   desc.add(other_desc);
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
-  po::notify(vm);
 
   if (vm.count("help")) {
     std::cout << desc << '\n'
@@ -118,6 +117,8 @@ std::optional<program_options_t> parse_program_options(int argc, char **argv) {
                  "/path/to/imgs/ -e .png --top-bottom -o ./\n";
     return {};
   }
+
+  po::notify(vm);
 
   return opts;
 }
@@ -281,9 +282,8 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
        << "distortion_coefficients_D2" << calib.D2 << "stereo_rotation_R"
        << calib.R << "stereo_translation_T" << calib.T
        << "rectified_rotation_R1" << R1 << "rectified_rotation_R2" << R2
-       << "new_camera_P1" << P1 << "new_camera_P2" << P2
-       << "reprojection_Q" << Q
-       << "image_size" << img_size << "top_bottom" << opts.top_bottom;
+       << "new_camera_P1" << P1 << "new_camera_P2" << P2 << "reprojection_Q"
+       << Q << "image_size" << img_size << "top_bottom" << opts.top_bottom;
   }
   std::vector<cv::Mat> rectified;
   cv::Mat pair;

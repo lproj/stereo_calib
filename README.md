@@ -3,7 +3,7 @@
 ## Requirements
 
 ### Compiler supporting C++20
-You need the full gcc toolchain supporting C++20 (e.g. g++-10):
+You need a C++ toolchain supporting C++20 (e.g. g++-10):
  ```
  sudo apt install g++-10 gcc+-10
  ```
