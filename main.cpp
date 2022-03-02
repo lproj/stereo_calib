@@ -268,8 +268,10 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
   BOOST_ASSERT(!stereo_imgs.empty());
   const auto img_size = stereo_imgs.at(0).first.img.size();
   cv::Mat R1, R2, P1, P2, Q, map11, map12, map21, map22;
+  cv::Rect ROI1, ROI2;
   cv::stereoRectify(calib.A1, calib.D1, calib.A2, calib.D2, img_size, calib.R,
-                    calib.T, R1, R2, P1, P2, Q, cv::CALIB_ZERO_DISPARITY);
+                    calib.T, R1, R2, P1, P2, Q, cv::CALIB_ZERO_DISPARITY, -1,
+                    {}, &ROI1, &ROI2);
   cv::initUndistortRectifyMap(calib.A1, calib.D1, R1, P1, img_size, CV_16SC2,
                               map11, map12);
   cv::initUndistortRectifyMap(calib.A2, calib.D2, R2, P2, img_size, CV_16SC2,
@@ -301,6 +303,10 @@ undistort_rectify(const std::vector<stereo_view_t> &stereo_imgs,
       cv::line(pair, cv::Point(0, j), cv::Point(img_size.width * 2, j),
                cv::Scalar(0, 255, 0));
     }
+    cv::rectangle(pair, ROI1, {255, 255, 255}, 2);
+    cv::rectangle(pair,
+                  {ROI2.x + img_size.width, ROI2.y, ROI2.width, ROI2.height},
+                  {255, 255, 255}, 2);
     if (show) {
       cv::imshow("rectified", pair);
       const auto key = cv::waitKey();
